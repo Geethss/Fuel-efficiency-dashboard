@@ -3,8 +3,8 @@ import pandas as pd
 import joblib
 import plotly.express as px
 from datetime import datetime
-st.set_page_config(layout="wide")
 
+st.set_page_config(layout="wide")
 
 FUEL_PRICE_PER_LITER = 105
 
@@ -35,132 +35,219 @@ fuel_types = {
     'N': 'Natural Gas'
 }
 
-page = st.sidebar.radio("Go to", ["Prediction", "Dashboard"])
+page = st.sidebar.radio("Navigation", ["Prediction", "Dashboard"])
+
+st.sidebar.markdown("## Parameter Descriptions")
+st.sidebar.write("""
+- **Engine Size (L):** The size of the vehicle's engine in liters.
+- **Cylinders:** Number of cylinders in the engine.
+- **Fuel Consumption (Comb) (L/100 km):** Combined fuel consumption.
+- **Highway Fuel Consumption (L/100 km):** Fuel consumption on highways.
+- **Make:** Vehicle manufacturer.
+- **Vehicle Class:** Category or class of the vehicle.
+- **Transmission:** Type of transmission.
+- **Fuel Type:** Type of fuel used by the vehicle.
+""")
+
+
 
 if page == "Prediction":
-    st.title("Fuel Efficiency Prediction Dashboard")
-
-st.header("Enter Vehicle Specifications:")
-engine_size = st.slider("Engine Size (L)", min_value=0.8, max_value=8.4, value=3.0, step=0.1)
-cylinders = st.slider("Cylinders", min_value=2, max_value=16, value=6, step=1)
-fuel_consumption = st.slider("Fuel Consumption (Comb) (L/100 km)", min_value=3.6, max_value=26.1, value=12.0)
-highway_fuel_consumption = st.slider("Highway Fuel Consumption (L/100 km)", min_value=3.2, max_value=20.9, value=8.5)
-make = st.selectbox("Make", options=makes)
-vehicle_class = st.selectbox("Vehicle Class", options=vehicle_classes)
-transmission = st.selectbox("Transmission", options=transmissions)
-
-fuel_type_display = st.selectbox("Fuel Type", options=fuel_types.values())
-fuel_type = [k for k, v in fuel_types.items() if v == fuel_type_display][0]
-
-input_data = {
-    'ENGINE SIZE': [engine_size],
-    'CYLINDERS': [cylinders],
-    f'MAKE_{make}': 1,
-    f'VEHICLE CLASS_{vehicle_class}': 1,
-    f'TRANSMISSION_{transmission}': 1,
-    f'FUEL_{fuel_type}': 1
-}
-
-input_df = pd.DataFrame(input_data)
-input_df = input_df.reindex(columns=model_features, fill_value=0)
-
-if 'predictions' not in st.session_state:
-    st.session_state.predictions = []
-
-if st.button("Predict Fuel Consumption"):
-    prediction = model.predict(input_df)[0]
-    estimated_cost = prediction * FUEL_PRICE_PER_LITER
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    # Store prediction and estimated cost in session state
-    new_prediction = {'Timestamp': timestamp, 'Fuel Consumption': prediction, 'Estimated Cost': estimated_cost}
-    st.session_state.predictions.append(new_prediction)
-
-    st.write(f"Predicted Combined Fuel Consumption: {prediction:.2f} L/100 km")
-    st.write(f"Estimated Fuel Cost for 100 km: ₹{estimated_cost:.2f}")
-
-    filtered_data = data[(data['MAKE'] == make) & (data['VEHICLE CLASS'] == vehicle_class) &
-                         (data['CYLINDERS'] == cylinders) & (data['TRANSMISSION'] == transmission) &
-                         (data['FUEL'] == fuel_type)]
+    st.title("🚗Fuel Efficiency Prediction Dashboard")
     
-    if not filtered_data.empty:
-        fig = px.histogram(
-            filtered_data,
-            x='COMB (L/100 km)',
-            title='Fuel Consumption of Similar Vehicles',
-            labels={'COMB (L/100 km)': 'Combined Fuel Consumption (L/100 km)'}
-        )
-        st.plotly_chart(fig)
-    else:
-        st.write("No similar vehicles found in the dataset for comparison.")
+    st.subheader("Enter Vehicle Specifications")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        engine_size = st.slider("Engine Size (L)", min_value=0.8, max_value=8.4, value=3.0, step=0.1)
+        cylinders = st.slider("Cylinders", min_value=2, max_value=16, value=6, step=1)
+    
+    with col2:
+        fuel_consumption = st.slider("Fuel Consumption (Comb) (L/100 km)", min_value=3.6, max_value=26.1, value=12.0)
+        highway_fuel_consumption = st.slider("Highway Fuel Consumption (L/100 km)", min_value=3.2, max_value=20.9, value=8.5)
+    
+    with col3:
+        make = st.selectbox("Make", options=makes)
+        vehicle_class = st.selectbox("Vehicle Class", options=vehicle_classes)
+        transmission = st.selectbox("Transmission", options=transmissions)
+    
+    fuel_type_display = st.selectbox("Fuel Type", options=fuel_types.values())
+    fuel_type = [k for k, v in fuel_types.items() if v == fuel_type_display][0]
 
-    model_data = data[(data['MAKE'] == make) & (data['VEHICLE CLASS'] == vehicle_class)]
-    if not model_data.empty:
-        max_fuel_consumption = model_data['COMB (L/100 km)'].max()
-        st.session_state['max_fuel_consumption'] = max_fuel_consumption
+    input_data = {
+        'ENGINE SIZE': [engine_size],
+        'CYLINDERS': [cylinders],
+        f'MAKE_{make}': 1,
+        f'VEHICLE CLASS_{vehicle_class}': 1,
+        f'TRANSMISSION_{transmission}': 1,
+        f'FUEL_{fuel_type}': 1
+    }
+    
+    input_df = pd.DataFrame(input_data).reindex(columns=model_features, fill_value=0)
+    
+    if st.button("Predict Fuel Consumption"):
+        prediction = model.predict(input_df)[0]
+        estimated_cost = prediction * FUEL_PRICE_PER_LITER
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        new_prediction = {'Timestamp': timestamp, 'Fuel Consumption': prediction, 'Estimated Cost': estimated_cost}
+        if 'predictions' not in st.session_state:
+            st.session_state.predictions = []
+        st.session_state.predictions.append(new_prediction)
+        
+        st.success(f"Predicted Combined Fuel Consumption: {prediction:.2f} L/100 km")
+        st.info(f"Estimated Fuel Cost for 100 km: ₹{estimated_cost:.2f}")
+        
+        filtered_data = data[(data['MAKE'] == make) & (data['VEHICLE CLASS'] == vehicle_class) &
+                             (data['CYLINDERS'] == cylinders) & (data['TRANSMISSION'] == transmission) &
+                             (data['FUEL'] == fuel_type)]
+        if not filtered_data.empty:
+            fig = px.histogram(
+                filtered_data,
+                x='COMB (L/100 km)',
+                title='Fuel Consumption of Similar Vehicles',
+                labels={'COMB (L/100 km)': 'Combined Fuel Consumption (L/100 km)'}
+            )
+            st.plotly_chart(fig)
+        else:
+            st.warning("We currently don’t have similar vehicles for comparison. As we gather more data, this feature will become more useful. Stay tuned!")
+        
+        model_data = data[(data['MAKE'] == make) & (data['VEHICLE CLASS'] == vehicle_class)]
+        if not model_data.empty:
+            max_fuel_consumption = model_data['COMB (L/100 km)'].max()
+            st.session_state['max_fuel_consumption'] = max_fuel_consumption
+            if prediction > max_fuel_consumption:
+                st.error("⚠️ WARNING: Your car is consuming more fuel than similar vehicles.")
+                
 
-        if prediction > max_fuel_consumption:
-            st.error("WARNING: Your car is consuming more fuel than the highest recorded for similar vehicles.", icon="⚠️")
-            st.write("**Fuel-Saving Tips:** Avoid rapid acceleration, maintain optimal tire pressure, and reduce excess weight.")
-            st.write("### High Fuel Consumption")
-            st.write("#### Causes:")
-            st.write("""
-                - **Under-inflated Tires**: Increases rolling resistance.
-                - **Dirty Air Filter**: Reduces air intake efficiency, causing the engine to burn more fuel.
-                - **Worn Spark Plugs**: Inefficient combustion leads to more fuel usage.
-                - **Bad Oxygen Sensor**: Misreading fuel-air mixture data can lead to excess fuel usage.
-                - **Aggressive Driving Habits**: Rapid acceleration and heavy braking consume more fuel.
-                - **Excessive Idling**: Prolonged idling burns fuel without moving the vehicle.
-            """)
-            st.write("#### Symptoms:")
-            st.write("""
-                - Decreased miles per gallon (mpg).
-                - Frequent refueling required.
-                - Poor engine performance.
-            """)
-            st.write("#### Repairs:")
-            st.write("""
-                - **Inflate Tires**: Check and maintain optimal tire pressure.
-                - **Replace Air Filter**: Install a new air filter if it's clogged or dirty.
-                - **Change Spark Plugs**: Replace worn spark plugs for efficient combustion.
-                - **Check Oxygen Sensors**: Replace faulty sensors to improve fuel-air ratio.
-                - **Drive Smoothly**: Avoid rapid acceleration and braking.
-                - **Reduce Idling**: Turn off the engine when parked.
-            """)
-
-if page == "Dashboard":
-    st.title("Prediction History Dashboard")
-
+elif page == "Dashboard":
+    st.title("📊Prediction History Dashboard")
     if 'predictions' in st.session_state and st.session_state.predictions:
         predictions_df = pd.DataFrame(st.session_state.predictions)
         max_fuel_consumption = st.session_state.get('max_fuel_consumption', predictions_df['Fuel Consumption'].max())
 
-        # Compute total predictions, normal conditions, and warning conditions
+        latest_prediction = predictions_df.iloc[-1]
+        if latest_prediction['Fuel Consumption'] > max_fuel_consumption:
+            st.error("⚠️ WARNING: Your car is consuming more fuel than similar vehicles.")
+        else:
+            st.success("✅ Your car's fuel consumption is within the normal range. Keep up the good maintenance!")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("#### 🚗 Fuel Consumption")
+            st.metric(label="Fuel Consumption (L/100 km)", value=f"{latest_prediction['Fuel Consumption']:.2f}")
+        with col2:
+            st.markdown("#### 💰 Estimated Cost")
+            st.metric(label="Estimated Cost (₹ per 100 km)", value=f"{latest_prediction['Estimated Cost']:.2f}")
+        
+        st.markdown("### Summary Statistics")
         total_predictions = len(predictions_df)
         normal_conditions = sum(predictions_df['Fuel Consumption'] <= max_fuel_consumption)
         warning_conditions = total_predictions - normal_conditions
-
-        # Display summary statistics
-        st.markdown("### Summary Statistics")
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Predictions", total_predictions)
         col2.metric("Normal", normal_conditions)
         col3.metric("Warning", warning_conditions)
 
-        # Display recent predictions
         st.markdown("### Recent Predictions")
         st.write(predictions_df)
+        
+        fig2 = px.line(
+            predictions_df, 
+            x="Timestamp", 
+            y="Fuel Consumption", 
+            title="Fuel Consumption Over Time",
+            labels={"Fuel Consumption": "Fuel Consumption (L/100 km)", "Timestamp": "Timestamp"},
+            line_shape="linear", 
+            markers=True
+        )
+        fig2.update_layout(
+            plot_bgcolor="white",
+            title_x=0.5,
+            title_font=dict(size=18),
+            xaxis_title="Time",
+            yaxis_title="Fuel Consumption (L/100 km)",
+            xaxis=dict(showgrid=False),
+            yaxis=dict(showgrid=True, gridwidth=0.5, gridcolor='gray'),
+            margin=dict(l=50, r=50, t=50, b=50),
+            shapes=[dict(
+                type="rect", 
+                x0=0, x1=1, y0=0, y1=1,
+                xref="paper", yref="paper",
+                line=dict(color="black", width=2)
+            )]
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
-        # Charts
+        st.markdown("""
+        **Fuel Consumption Over Time**: 
+        This graph visualizes how your vehicle's fuel consumption changes over time. Monitoring this trend allows you to detect any unusual spikes in fuel usage, which could indicate issues with vehicle performance or maintenance. A consistent upward trend may signal the need for repairs or maintenance, such as tire inflation, spark plug replacement, or air filter changes.
+        """)
+        
+        fig4 = px.pie(
+            names=["Normal", "Warning"], 
+            values=[normal_conditions, warning_conditions], 
+            title="Condition Distribution",
+            color=["Normal", "Warning"],
+            color_discrete_map={"Normal": "green", "Warning": "red"},
+            hole=0.3
+        )
+        fig4.update_traces(
+            textinfo='percent+label', 
+            pull=[0.1, 0.1],
+            textfont=dict(size=14, color='black')  
+        )
+        fig4.update_layout(
+            title=dict(
+                text="Condition Distribution",  
+                x=0.5,  
+                xanchor="center",  
+                y=0.95,  
+                yanchor="top", 
+                font=dict(size=18)  
+            ),
+            plot_bgcolor="white",  
+            margin=dict(l=50, r=50, t=80, b=50),  
+            width=400,  
+            height=400  
+        )
+        st.plotly_chart(fig4, use_container_width=True)
 
-        fig2 = px.line(predictions_df, x="Timestamp", y="Fuel Consumption", title="Fuel Consumption Over Time")
-        st.plotly_chart(fig2)
+        st.markdown("""
+        **Condition Distribution**: 
+        The pie chart shows the proportion of predictions that are within the normal fuel consumption range versus those that fall under the "warning" category. A higher percentage of "Normal" predictions suggests your vehicle is performing well, while a higher percentage of "Warning" predictions may require further investigation to avoid excessive fuel consumption.
+        """)
 
-        fig4 = px.pie(values=[normal_conditions, warning_conditions], names=["Normal", "Warning"], title="Condition Distribution")
-        st.plotly_chart(fig4)
+        latest_prediction = predictions_df.iloc[-1]
+    
+        st.markdown("### 📋 Tips to Improve Fuel Efficiency:")
+        st.write("""
+        - **Under-inflated Tires**: Increases rolling resistance.
+        - **Dirty Air Filter**: Reduces air intake efficiency, causing the engine to burn more fuel.
+        - **Worn Spark Plugs**: Inefficient combustion leads to more fuel usage.
+        - **Bad Oxygen Sensor**: Misreading fuel-air mixture data can lead to excess fuel usage.
+        - **Aggressive Driving Habits**: Rapid acceleration and heavy braking consume more fuel.
+        - **Excessive Idling**: Prolonged idling burns fuel without moving the vehicle.
+        """)
 
-        # Download button
+        st.markdown("### 🔍 Symptoms of High Fuel Consumption:")
+        st.write("""
+        - Decreased miles per gallon (mpg).
+        - Frequent refueling required.
+        - Poor engine performance.
+        """)
+
+        st.markdown("### 🔧 Suggested Repairs and Maintenance:")
+        st.write("""
+        - **Inflate Tires**: Check and maintain optimal tire pressure.
+        - **Replace Air Filter**: Install a new air filter if it's clogged or dirty.
+        - **Change Spark Plugs**: Replace worn spark plugs for efficient combustion.
+        - **Check Oxygen Sensors**: Replace faulty sensors to improve fuel-air ratio.
+        - **Drive Smoothly**: Avoid rapid acceleration and braking.
+        - **Reduce Idling**: Turn off the engine when parked.
+        """)
+
         csv = predictions_df.to_csv(index=False)
         st.download_button("Download Complete History", data=csv, file_name="fuel_predictions_history.csv", mime="text/csv")
     else:
-        st.write("No predictions have been made yet.")
+        st.write("We currently don’t have similar vehicles for comparison. As we gather more data, this feature will become more useful. Stay tuned!")
